@@ -133,6 +133,21 @@ if (MAX_GAMEPADS GREATER 4 OR MAX_GAMEPADS LESS 1)
 endif()
 add_definitions(-DMAX_GAMEPADS=${MAX_GAMEPADS})
 
+# PIO USB host D+ pin override / D+/D- pairing direction, for boards whose Config.h honors
+# #ifndef (currently RP2350_USB_A) — lets a clone board with a different data-line pinout be
+# retargeted without hand-editing Config.h. Empty string (default) leaves the board's own
+# Config.h default in place. On boards whose Config.h defines these unconditionally, a non-empty
+# value here is harmlessly overridden by that unconditional #define (redefinition warning only).
+set(PIO_USB_DP_PIN "" CACHE STRING "Override PIO USB host D+ GPIO (clone-board pinout mismatch). Empty = board default.")
+if (NOT PIO_USB_DP_PIN STREQUAL "")
+    add_compile_definitions(PIO_USB_DP_PIN=${PIO_USB_DP_PIN})
+endif()
+
+set(PIO_USB_SWAP_DP_DM "" CACHE STRING "1 = pio_usb pairs D- as (D+ pin - 1) instead of (D+ pin + 1). Combine with PIO_USB_DP_PIN to fully reverse a swapped D+/D- pair. Empty = board default.")
+if (NOT PIO_USB_SWAP_DP_DM STREQUAL "")
+    add_compile_definitions(PIO_USB_SWAP_DP_DM=${PIO_USB_SWAP_DP_DM})
+endif()
+
 set(OGXM_BOARD "PI_PICO" CACHE STRING "Set board type, options can be found in src/board_config.h")
 set(FLASH_SIZE_MB 2)
 set(PICO_BOARD none)

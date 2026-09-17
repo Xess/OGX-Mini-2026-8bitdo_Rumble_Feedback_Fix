@@ -113,8 +113,30 @@
 
 #elif defined(CONFIG_OGXM_BOARD_RP2350_USB_A)
     #define OGXM_BOARD          RP2350_USB_A
+    /* D+ = GP12, D- = GP13 on the genuine Waveshare RP2350-USB-A. Both are overridable
+     * (-DPIO_USB_DP_PIN=.. / -DPIO_USB_SWAP_DP_DM=1, see CMakeLists.txt) because clone boards
+     * are not guaranteed to match this pinout — see README "Clones and knock-offs are not
+     * supported". Two distinct clone failure modes, diagnosed differently:
+     *  1) Host port never reacts at all (no mount, no brief connect blip, nothing): suspect the
+     *     RP2350 pad drive, not the pin numbers. This MCU's internal pull-downs are too weak for
+     *     pio_usb's bit-banged host-mode line sensing (see hardware/README.md's Pico 2 note) —
+     *     the genuine Waveshare board has external 4.7k pull-downs from D+/D- to GND that many
+     *     clones omit. Add them at the USB-A connector's data pins; no firmware setting fixes a
+     *     missing resistor.
+     *  2) Host port reacts (powers the device / brief mount / connect IRQ fires) but never
+     *     enumerates: the data pair is likely swapped on the clone's silkscreen vs. this pinout.
+     *     pio_usb's "swap" only changes which *neighboring* pin is D- (pin_dp-1 instead of
+     *     pin_dp+1) — it does not flip which pin is D+. To fully reverse a swapped pair, change
+     *     BOTH: -DPIO_USB_DP_PIN=13 -DPIO_USB_SWAP_DP_DM=1 (makes GP13 the new D+, GP12 the new
+     *     D-). Setting PIO_USB_SWAP_DP_DM alone with PIO_USB_DP_PIN still 12 does not swap D+/D-;
+     *     it points D- at GP11 instead, which is very unlikely to be what a clone needs. */
+    #ifndef PIO_USB_DP_PIN
     #define PIO_USB_DP_PIN      12
+    #endif
     #define RGB_PXL_PIN         16
+    #ifndef PIO_USB_SWAP_DP_DM
+    #define PIO_USB_SWAP_DP_DM  0
+    #endif
 
 #elif defined(CONFIG_OGXM_BOARD_RP2350_ZERO)
     #define OGXM_BOARD          RP2350_ZERO
@@ -153,6 +175,18 @@
 #endif // defined(I2C_SDA_PIN)
 
 #if defined(PIO_USB_DP_PIN)
+    /* Boards that don't set this above (PI_PICOW / RP2354 / RP2350_USB_A do) never need the
+     * swap, so default it here rather than requiring every board section to declare it. */
+    #ifndef PIO_USB_SWAP_DP_DM
+    #define PIO_USB_SWAP_DP_DM  0
+    #endif
+
+    #if PIO_USB_SWAP_DP_DM
+        #define PIO_USB_CONFIG_PINOUT PIO_USB_PINOUT_DMDP
+    #else
+        #define PIO_USB_CONFIG_PINOUT PIO_USB_PINOUT_DPDM
+    #endif
+
     #define PIO_USB_CONFIG { \
         PIO_USB_DP_PIN, \
         PIO_USB_TX_DEFAULT, \
@@ -165,7 +199,7 @@
         PIO_USB_DEBUG_PIN_NONE, \
         PIO_USB_DEBUG_PIN_NONE, \
         false, \
-        PIO_USB_PINOUT_DPDM \
+        PIO_USB_CONFIG_PINOUT \
     }
 #endif // defined(PIO_USB_DP_PIN)
 

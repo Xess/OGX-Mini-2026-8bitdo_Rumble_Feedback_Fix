@@ -155,6 +155,15 @@ void stop_pio_usb_host() {
     enable_host_line_irq_monitoring();
 }
 
+/**
+ * Strong override of the weak stub in board_api_usbh.cpp. True whenever the 1 kHz
+ * repeating_timer (pico_w_usb_sof_timer_cb) is the one calling pio_usb_host_frame(), so other
+ * call sites (HostManager::send_feedback, tuh_xinput wait_for_tx_complete) must not also call it.
+ */
+bool sof_timer_active() {
+    return s_pico_w_usb_sof_hw_timer;
+}
+
 } // namespace board_api_usbh
 
 /**

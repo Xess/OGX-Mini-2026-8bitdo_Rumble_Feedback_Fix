@@ -14,6 +14,7 @@
 #include "Board/board_api.h"
 #if defined(CONFIG_EN_USB_HOST)
 #include "pio_usb.h"
+#include "Board/board_api_private/board_api_private.h"
 #endif
 #if defined(CONFIG_OGXM_DEBUG)
 #include "USBHost/HostDriver/GameSirCyclone2/GameSirCyclone2Trace.h"
@@ -131,7 +132,14 @@ static void wait_for_tx_complete(uint8_t dev_addr, uint8_t ep_addr, uint32_t tim
             return;
         }
 #if defined(CONFIG_EN_USB_HOST)
-        pio_usb_host_frame();
+        /* pio_usb_host_frame() is not reentrant. A hardware repeating_timer IRQ already services
+         * SOF at ~1 kHz on boards that have one (Pico W / Standard) — calling it again here from
+         * this busy-wait (used by wired rumble / GIP / chatpad init) races that IRQ and can wedge
+         * the PIO-USB host with no recovery path. Only call it manually when nothing else is. */
+        if (!board_api_usbh::sof_timer_active())
+        {
+            pio_usb_host_frame();
+        }
 #endif
         tuh_task();
     }

@@ -42,6 +42,10 @@ void enable_host_line_irq_monitoring() {
 void stop_pio_usb_host() __attribute__((weak));
 void stop_pio_usb_host() {}
 
+/** Weak default: no hardware SOF timer known here, so manual pio_usb_host_frame() callers must still run. */
+bool sof_timer_active() __attribute__((weak));
+bool sof_timer_active() { return false; }
+
 void init() {
 #if defined(VCC_EN_PIN)
     gpio_init(VCC_EN_PIN);

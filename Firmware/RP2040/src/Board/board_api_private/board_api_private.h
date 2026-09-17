@@ -32,6 +32,16 @@ namespace board_api_usbh {
     void enable_host_line_irq_monitoring();
     /** Stop PIO USB host (SOF timer, tuh_deinit) before core reset / reboot. Standard boards. */
     void stop_pio_usb_host() __attribute__((weak));
+    /**
+     * True while pio_usb_host_frame() is already being serviced at ~1 kHz by a hardware
+     * repeating_timer IRQ (see PicoW.cpp / Standard.cpp). pio_usb_host_frame() is not reentrant —
+     * callers that would otherwise invoke it manually from main-loop code (e.g. HostManager's
+     * send_feedback path, tuh_xinput's TX-complete busy-wait) must skip that call while this is
+     * true, or the IRQ can land mid-frame inside the manual call and corrupt PIO-USB's transfer
+     * state (silent host freeze, no recovery). Weak stub defaults to false for boards/paths with
+     * no hardware SOF timer, where the manual call is still required.
+     */
+    bool sof_timer_active() __attribute__((weak));
 }
 
 #endif // BOARD_API_PRIVATE_H

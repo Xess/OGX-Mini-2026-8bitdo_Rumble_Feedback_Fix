@@ -10,6 +10,7 @@
 
 #include "Board/Config.h"
 #include "Board/board_api.h"
+#include "Board/board_api_private/board_api_private.h"
 #include "Board/ogxm_log.h"
 #include "Input/InputSlot.h"
 #if defined(CONFIG_EN_USB_HOST)
@@ -580,8 +581,16 @@ public:
 				iface.driver->send_feedback(*iface.gamepad, device_slot.address, iface.usb_instance);
 				tuh_task();
 #if defined(CONFIG_EN_USB_HOST)
-				/* Nested tuh_task during OUT must not starve PIO USB SOF or wired IN dies in ~1–2 s. */
-				pio_usb_host_frame();
+				/* Nested tuh_task during OUT must not starve PIO USB SOF or wired IN dies in ~1–2 s.
+				 * But pio_usb_host_frame() is not reentrant: when a hardware repeating_timer IRQ is
+				 * already servicing SOF at ~1 kHz (Pico W / Standard boards), calling it again here
+				 * from main-loop code races the IRQ and can wedge the PIO-USB host with no recovery
+				 * path (this is what froze the adapter as soon as rumble started on the 8BitDo
+				 * Ultimate 2 dongle). Only call it manually when no hardware timer is driving it. */
+				if (!board_api_usbh::sof_timer_active())
+				{
+					pio_usb_host_frame();
+				}
 #endif
 			}
 		}
